@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateUserInput } from './dto/create-user.input';
+import { QueryUserInput } from './dto/query-user.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import { User } from './user.entity';
 
@@ -23,6 +24,18 @@ export class UserService {
 
   async findUserById(id: string): Promise<User> {
     const user = await this.userRepository.findOne(id);
+
+    if (!user) {
+      throw new NotFoundException('Usuário não encontrado');
+    }
+
+    return user;
+  }
+
+  async findUser(query: QueryUserInput): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { ...query },
+    });
 
     if (!user) {
       throw new NotFoundException('Usuário não encontrado');

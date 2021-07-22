@@ -4,7 +4,7 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { TestUtil } from '../common/test/test-util';
+import { UserTestUtils } from '../common/test/user-test-utils';
 import { User } from './user.entity';
 import { UserService } from './user.service';
 
@@ -49,8 +49,8 @@ describe('UserService', () => {
 
   describe('when search all users', () => {
     it('should list all users', async () => {
-      const validUser = TestUtil.getValidUser();
-      mockRepository.find.mockReturnValue([validUser, validUser]);
+      const mockListOfUsers = UserTestUtils.mockListOfUsersResult();
+      mockRepository.find.mockReturnValue(mockListOfUsers);
       const users = await service.findAllUsers();
       expect(users).toHaveLength(2);
       expect(mockRepository.find).toHaveBeenCalledTimes(1);
@@ -59,10 +59,10 @@ describe('UserService', () => {
 
   describe('when search for a user by id', () => {
     it('should find a existing user', async () => {
-      const validUser = TestUtil.getValidUser();
-      mockRepository.findOne.mockReturnValue(validUser);
+      const mockUserResult = UserTestUtils.mockUserResult();
+      mockRepository.findOne.mockReturnValue(mockUserResult);
       const user = await service.findUserById('Valid Id');
-      expect(user).toMatchObject({ email: validUser.email });
+      expect(user).toMatchObject({ email: mockUserResult.email });
       expect(mockRepository.findOne).toHaveBeenCalledTimes(1);
     });
 
@@ -75,22 +75,59 @@ describe('UserService', () => {
     });
   });
 
+  describe('when search a user by query params', () => {
+    it('should be able to find user by his id', async () => {
+      const mockUserResult = UserTestUtils.mockUserResult();
+      mockRepository.findOne.mockReturnValue(mockUserResult);
+      const user = await service.findUser({ id: mockUserResult.id });
+
+      expect(user).toMatchObject(mockUserResult);
+      expect(mockRepository.findOne).toHaveBeenCalledTimes(1);
+    });
+    it('should be able to find user by his name', async () => {
+      const mockUserResult = UserTestUtils.mockUserResult();
+      mockRepository.findOne.mockReturnValue(mockUserResult);
+      const user = await service.findUser({ name: mockUserResult.name });
+
+      expect(user).toMatchObject(mockUserResult);
+      expect(mockRepository.findOne).toHaveBeenCalledTimes(1);
+    });
+    it('should be able to find user by his email', async () => {
+      const mockUserResult = UserTestUtils.mockUserResult();
+      mockRepository.findOne.mockReturnValue(mockUserResult);
+      const user = await service.findUser({ email: mockUserResult.email });
+
+      expect(user).toMatchObject(mockUserResult);
+      expect(mockRepository.findOne).toHaveBeenCalledTimes(1);
+    });
+    it('should not find a user that not exist', () => {
+      mockRepository.findOne.mockReturnValue(null);
+      expect(service.findUser({ id: 'Invalid Id' })).rejects.toBeInstanceOf(
+        NotFoundException,
+      );
+      expect(mockRepository.findOne).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('when create user', () => {
     it('should be able to create a user', async () => {
-      const validUser = TestUtil.getValidUser();
-      mockRepository.create.mockReturnValue(validUser);
-      mockRepository.save.mockReturnValue(validUser);
-      const user = await service.createUser(validUser);
-      expect(user).toMatchObject({ id: validUser.id });
+      const mockCreateUserInput = UserTestUtils.mockCreateUserInput();
+      const mockUserResult = UserTestUtils.mockUserResult();
+      mockRepository.create.mockReturnValue(mockCreateUserInput);
+      mockRepository.save.mockReturnValue(mockUserResult);
+      const user = await service.createUser(mockCreateUserInput);
+
+      expect(user).toMatchObject({ id: mockUserResult.id });
       expect(mockRepository.create).toHaveBeenCalledTimes(1);
       expect(mockRepository.save).toHaveBeenCalledTimes(1);
     });
 
     it('should not be able to create a user', async () => {
-      const validUser = TestUtil.getValidUser();
-      mockRepository.create.mockReturnValue(validUser);
+      const mockCreateUserInput = UserTestUtils.mockCreateUserInput();
+      mockRepository.create.mockReturnValue(mockCreateUserInput);
       mockRepository.save.mockReturnValue(null);
-      await service.createUser(validUser).catch((ex) => {
+
+      await service.createUser(mockCreateUserInput).catch((ex) => {
         expect(ex).toBeInstanceOf(InternalServerErrorException);
         expect(ex).toMatchObject({ message: 'Erro interno ao criar usuário' });
       });
@@ -101,25 +138,33 @@ describe('UserService', () => {
 
   describe('when update user', () => {
     it('should be able to update a user', async () => {
-      const validUser = TestUtil.getValidUser();
-      const updatedUser = { name: 'Updated name' };
-      mockRepository.findOne.mockReturnValue(validUser);
+      const mockUpdateUserInput = UserTestUtils.mockUpdateUserInput();
+      const mockUserResult = UserTestUtils.mockUserResult();
+      mockRepository.findOne.mockReturnValue(mockUserResult);
       mockRepository.update.mockReturnValue({ affected: 1 });
-      mockRepository.create.mockReturnValue({ ...validUser, ...updatedUser });
-      const user = await service.updateUser('Valid id', updatedUser);
-      expect(user).toMatchObject({ ...validUser, ...updatedUser });
+      mockRepository.create.mockReturnValue({
+        ...mockUserResult,
+        ...mockUpdateUserInput,
+      });
+      const user = await service.updateUser('Valid id', mockUpdateUserInput);
+
+      expect(user).toMatchObject({ ...mockUserResult, ...mockUpdateUserInput });
       expect(mockRepository.findOne).toHaveBeenCalledTimes(1);
       expect(mockRepository.update).toHaveBeenCalledTimes(1);
       expect(mockRepository.create).toHaveBeenCalledTimes(1);
     });
 
     it('should be able to update a user', async () => {
-      const validUser = TestUtil.getValidUser();
-      const updatedUser = { name: 'Updated name' };
-      mockRepository.findOne.mockReturnValue(validUser);
+      const mockUpdateUserInput = UserTestUtils.mockUpdateUserInput();
+      const mockUserResult = UserTestUtils.mockUserResult();
+      mockRepository.findOne.mockReturnValue(mockUserResult);
       mockRepository.update.mockReturnValue(null);
-      mockRepository.create.mockReturnValue({ ...validUser, ...updatedUser });
-      await service.updateUser('Valid id', updatedUser).catch((ex) => {
+      mockRepository.create.mockReturnValue({
+        ...mockUserResult,
+        ...mockUpdateUserInput,
+      });
+
+      await service.updateUser('Valid id', mockUpdateUserInput).catch((ex) => {
         expect(ex).toBeInstanceOf(InternalServerErrorException);
         expect(ex).toMatchObject({
           message: 'Erro interno ao atualizar usuário',
@@ -133,20 +178,22 @@ describe('UserService', () => {
 
   describe('when delete user', () => {
     it('should be able to delete a existing user', async () => {
-      const validUser = TestUtil.getValidUser();
-      mockRepository.findOne.mockReturnValue(validUser);
+      const mockUserResult = UserTestUtils.mockUserResult();
+      mockRepository.findOne.mockReturnValue(mockUserResult);
       mockRepository.delete.mockReturnValue({ affected: 1 });
-      const deletedUser = await service.deleteUser(validUser.id);
-      expect(deletedUser).toMatchObject(validUser);
+      const deletedUser = await service.deleteUser(mockUserResult.id);
+
+      expect(deletedUser).toMatchObject(mockUserResult);
       expect(mockRepository.delete).toHaveBeenCalledTimes(1);
       expect(mockRepository.findOne).toHaveBeenCalledTimes(1);
     });
 
     it('should not be able to delete a user', async () => {
-      const validUser = TestUtil.getValidUser();
-      mockRepository.findOne.mockReturnValue(validUser);
+      const mockUserResult = UserTestUtils.mockUserResult();
+      mockRepository.findOne.mockReturnValue(mockUserResult);
       mockRepository.delete.mockReturnValue(null);
-      await service.deleteUser(validUser.id).catch((ex) => {
+
+      await service.deleteUser(mockUserResult.id).catch((ex) => {
         expect(ex).toBeInstanceOf(InternalServerErrorException);
         expect(ex).toMatchObject({
           message: 'Erro interno ao deletar usuário',
